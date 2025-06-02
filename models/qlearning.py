@@ -84,7 +84,7 @@ class QLearningAgent:
 
     def evaluate_position(self, game, perspective):
         """Evaluate board position from given color's perspective"""
-        piece_values = {'K': 1000, 'R': 5, 'B': 3}
+        piece_values = {'K': 50, 'R': 5, 'B': 3}
         score = 0
         
         for y in range(5):
@@ -121,7 +121,7 @@ class QLearningAgent:
         """Calculate reward based on action's effect"""
         # Check for illegal moves
         if not old_game.is_valid_move(*action):
-            return -10.0
+            return -5.0
         
         # Get position evaluations from agent's perspective
         old_score = self.evaluate_position(old_game, agent_color)
@@ -137,16 +137,16 @@ class QLearningAgent:
         self.seen_states.add(new_state)
         
         # Check for zero-effect moves
-        if abs(reward) < 0.01:  # Very small change threshold
+        if abs(reward) < 0.01:
             reward -= 1.0
         
         # Game ending rewards
         if new_game.winner:
             if new_game.winner == agent_color:
-                reward += 50.0
+                reward += 10.0
             elif new_game.winner == 'draw':
                 reward += 5.0
             else:
-                reward -= 50.0
+                reward -= 10.0
         
         return reward

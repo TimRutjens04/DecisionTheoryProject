@@ -1,5 +1,4 @@
 from chess_logic.chess_5x5 import MiniChess
-import random
 
 class MinimaxAI:
     def __init__(self, depth=2, name="minmax"):
@@ -26,10 +25,13 @@ class MinimaxAI:
 
     def minimax(self, game, depth, maximizing):
         if depth == 0 or game.is_game_over():
-            return self.evaluate(game), None
+            eval_score = self.evaluate(game)
+            # print(f"Leaf node evaluation: {eval_score} at depth {depth}")
+            return eval_score, None
 
         legal_moves = game.get_legal_moves()
         if not legal_moves:
+            print("No legal moves found")
             return self.evaluate(game), None
 
         best_move = None
@@ -39,6 +41,7 @@ class MinimaxAI:
                 new_game = self.copy_game(game)
                 new_game.make_move(*move)
                 eval, _ = self.minimax(new_game, depth-1, False)
+                # print(f"Maximizing - Move: {move}, Eval: {eval}")
                 if eval > max_eval:
                     max_eval = eval
                     best_move = move
@@ -49,6 +52,7 @@ class MinimaxAI:
                 new_game = self.copy_game(game)
                 new_game.make_move(*move)
                 eval, _ = self.minimax(new_game, depth-1, True)
+                # print(f"Minimizing - Move: {move}, Eval: {eval}")
                 if eval < min_eval:
                     min_eval = eval
                     best_move = move
@@ -56,7 +60,7 @@ class MinimaxAI:
 
     def copy_game(self, game):
         new_game = MiniChess()
-        new_game.board = game.board.copy()
+        new_game.board = [row.copy() for row in game.board]  # Deep copy for 2D array
         new_game.turn = game.turn
         new_game.winner = game.winner
         new_game.halfmove_clock = game.halfmove_clock
@@ -64,5 +68,8 @@ class MinimaxAI:
         return new_game
 
     def select_move(self, game):
-        _, move = self.minimax(game, self.depth, game.turn == 'w')
+        # print(f"\nMinMax selecting move for {game.turn} at depth {self.depth}")
+        # print(f"Current board:\n{game.board}")
+        eval_score, move = self.minimax(game, self.depth, game.turn == 'w')
+        # print(f"Selected move {move} with evaluation {eval_score}")
         return move
