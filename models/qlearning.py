@@ -84,7 +84,7 @@ class QLearningAgent:
 
     def evaluate_position(self, game, perspective):
         """Evaluate board position from given color's perspective"""
-        piece_values = {'K': 50, 'R': 5, 'B': 3}
+        piece_values = {'K': 0, 'R': 5, 'B': 3}
         score = 0
         
         for y in range(5):
@@ -143,10 +143,14 @@ class QLearningAgent:
         # Game ending rewards
         if new_game.winner:
             if new_game.winner == agent_color:
-                reward += 10.0
+                reward += 100.0
             elif new_game.winner == 'draw':
-                reward += 5.0
+                reward += 0
             else:
-                reward -= 10.0
+                reward -= 100.0
         
         return reward
+    
+    def write_to_file(self, text):
+        with open(f"{self.name}_output.txt", "a") as f:
+            f.write(text)

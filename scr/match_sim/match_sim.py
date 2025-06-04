@@ -1,46 +1,103 @@
-import os, sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
+import sys
+import time
+from pathlib import Path
+import pygame
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(PROJECT_ROOT))
 
 from chess_logic.chess_5x5 import MiniChess
-from models.qlearning import QLearningAgent
 from models.minmax import MinimaxAI
-import pickle
+from models.qlearning import QLearningAgent
+from gui.gui import drawGrid, pygame, signal_game_end, draw_start_button
 
-# Load trained Q-table
-with open("saved_models/q_table.pkl", "rb") as f:
-    q_table = pickle.load(f)
-
-q_agent = QLearningAgent(name="Q-Learner", q_table=q_table, epsilon=0.0)
-minimax_agent = MinimaxAI(name="Minimax", depth=2)
-
-NUM_MATCHES = 100
-results = {'QAgent': 0, 'Minimax': 0, 'Draw': 0}
-
-for i in range(NUM_MATCHES):
+def simulate_match(agent1, agent2, delay=1.0):
+    """Simulates a match between two agents with GUI visualization"""
+    pygame.init()
+    clock = pygame.time.Clock()
     game = MiniChess()
+    running = True
+    game_started = False
+    game_ended = False
+    winner = None
 
-    q_plays_white = i % 2 == 0
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                pygame.quit()
+                sys.exit()
+            elif not game_started and event.type == pygame.MOUSEBUTTONDOWN:
+                start_button = draw_start_button()
+                if start_button.collidepoint(event.pos):
+                    game_started = True
+                    print("Match started!")
 
-    while not game.is_game_over():
-        legal_moves = game.get_legal_moves()
-        state = game._board_key()
+        if not game_started:
+            drawGrid(game)
+            draw_start_button()
+            pygame.display.flip()
+            clock.tick(60)
+            continue
 
-        if (game.turn == 'w') == q_plays_white:
-            move = q_agent.choose_action(game)
+        if game_ended:
+            # Keep showing final position and game end signal
+            drawGrid(game)
+            if winner:
+                signal_game_end(winner)
+            pygame.display.flip()
+            clock.tick(60)
+            continue
+
+        if game.is_game_over():
+            game_ended = True
+            if game.winner:
+                if game.winner == 'w':
+                    winner = "White"
+                    print(f"\nGame Over! Winner: {winner}")
+                elif game.winner == 'b':
+                    winner = "Black"
+                    print(f"\nGame Over! Winner: {winner}")
+                else:
+                    winner = "Draw"
+                    print(f"\nGame Over! The game was a draw.")
+            else:
+                winner = "Draw"
+                print("\nGame Over! Draw")
+            continue
+
+        # Game logic for moves
+        drawGrid(game)
+        pygame.display.flip()
+
+        current_agent = agent1 if game.turn == 'w' else agent2
+        move = current_agent.select_move(game) if isinstance(current_agent, MinimaxAI) else current_agent.choose_action(game)
+        
+        if move:
+            print(f"Player {game.turn} ({current_agent.name}) moves: {move}")
+            game.make_move(*move)
+            
+            drawGrid(game)
+            pygame.display.flip()
+            time.sleep(delay)
         else:
-            move = minimax_agent.select_move(game)
+            print(f"No valid moves for {current_agent.name}")
+            game_ended = True
 
-        game.make_move(*move)
+        clock.tick(60)
 
-    winner = game.get_winner()
-    if winner == 'w':
-        results['QAgent'] += 1
-    elif winner == 'b':
-        results['Minimax'] += 1
-    else:
-        results['Draw'] += 1
+def main():
+    minimax = MinimaxAI(depth=1, name="Minimax")
+    qlearner = QLearningAgent(name="Q-Learner")
+    
+    try:
+        qlearner.load("saved_models/best_model.pkl")
+        print("Loaded trained Q-Learning model")
+    except:
+        print("No trained model found, using untrained Q-Learning agent")
 
-    print(f"Game {i+1}: Winner - {winner}")
+    print("Starting match simulation...")
+    simulate_match(qlearner, minimax, delay=1.5)
 
-print("\nFinal Results After", NUM_MATCHES, "Matches:")
-print(results)
+if __name__ == "__main__":
+    main()

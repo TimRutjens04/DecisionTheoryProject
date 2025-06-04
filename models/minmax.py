@@ -4,23 +4,29 @@ class MinimaxAI:
     def __init__(self, depth=2, name="minmax"):
         self.depth = depth
         self.name = name
+        self.color = None
 
     def evaluate(self, game):
+        if self.color is None:
+            self.color = game.turn
+
         if game.winner == 'w':
-            return float('inf')
+            return 100 if self.color == 'w' else -100
         elif game.winner == 'b':
-            return float('-inf')
+            return 100 if self.color == 'b' else -100
         elif game.winner == 'draw':
             return 0
 
         score = 0
-        piece_values = {'K': 1000, 'Q': 9, 'R': 5, 'B': 3, 'N': 3, 'P': 1}
+        piece_values = {'K': 0, 'Q': 9, 'R': 5, 'B': 3, 'N': 3, 'P': 1}
         for y in range(5):
             for x in range(5):
                 piece = game.get_piece(x, y)
                 if piece != '.':
+                    if game.is_in_check(piece[0]):
+                        score += -5 if piece[0] == self.color else 5
                     value = piece_values.get(piece[1], 0)
-                    score += value if piece[0] == 'w' else -value
+                    score += value if piece[0] == self.color else -value
         return score
 
     def minimax(self, game, depth, maximizing):
@@ -70,6 +76,6 @@ class MinimaxAI:
     def select_move(self, game):
         # print(f"\nMinMax selecting move for {game.turn} at depth {self.depth}")
         # print(f"Current board:\n{game.board}")
-        eval_score, move = self.minimax(game, self.depth, game.turn == 'w')
+        _, move = self.minimax(game, self.depth, game.turn == 'w')
         # print(f"Selected move {move} with evaluation {eval_score}")
         return move

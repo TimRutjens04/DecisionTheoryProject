@@ -66,8 +66,10 @@ class MiniChess:
     def _record_state(self):
         key = self._board_key()
         self.state_history[key] += 1
-        if self.state_history[key] >= 3:
+        if self.state_history[key] >= 4:
             self.winner = 'draw'
+            return True
+        return False
     
     def is_valid_move(self, from_pos, to_pos):
         fx, fy = from_pos
@@ -81,27 +83,25 @@ class MiniChess:
             return False
         
         color = piece[0]
-        if color != self.turn:
-            return False
-        
         piece_type = piece[1]
         dx, dy = tx - fx, ty - fy
 
         target = self.get_piece(tx, ty)
         if target != '.' and target[0] == color:
-            return False #Cant capture piece of its own
+            return False  # Can't capture own piece
+
+        if piece_type == 'K':
+            if max(abs(dx), abs(dy)) != 1:
+                return False
+            return True
 
         match piece_type:
-            case 'K':
-                return max(abs(dx), abs(dy)) == 1
             case 'B':
                 if abs(dx) != abs(dy):
-                    return False #No diagonals
-                
+                    return False
                 step_x = np.sign(dx)
                 step_y = np.sign(dy)
                 x, y = fx + step_x, fy + step_y
-
                 while (x, y) != (tx, ty):
                     if self.get_piece(x, y) != '.':
                         return False
@@ -110,12 +110,10 @@ class MiniChess:
                 return True
             case 'R':
                 if dx != 0 and dy != 0:
-                    return False # A diagonal move
-                
+                    return False
                 step_x = np.sign(dx)
                 step_y = np.sign(dy)
                 x, y = fx + step_x, fy + step_y
-
                 while (x, y) != (tx, ty):
                     if self.get_piece(x, y) != '.':
                         return False
@@ -128,13 +126,14 @@ class MiniChess:
         king_pos = None
         for y in range(5):
             for x in range(5):
-                if self.get_piece(x, y) == f"{color}K":
+                piece = self.get_piece(x, y)
+                if piece != '.' and piece[0] == color and piece[1] == 'K':
                     king_pos = (x, y)
                     break
             if king_pos:
                 break
         if not king_pos:
-            return True #Shouldnt happen but just to be safe
+            return False #Shouldnt happen but just to be safe
         
         opponent = 'b' if color == 'w' else 'w'
         for y in range(5):
@@ -165,6 +164,12 @@ class MiniChess:
 
         moving_piece = self.get_piece(fx, fy)
         target_piece = self.get_piece(tx, ty)
+                
+        old_board = [row.copy() for row in self.board]
+        old_turn = self.turn
+
+        if target_piece != '.' and target_piece[1] == 'K':
+            return False    
 
         self.set_piece(tx, ty, moving_piece)
         self.set_piece(fx, fy, '.')
@@ -173,20 +178,32 @@ class MiniChess:
             self.halfmove_clock = 0
         else:
             self.halfmove_clock += 1
-
-        if self.halfmove_clock >= 40:
-            self.winner = 'draw'
-            return True
+        
+        if all(old_board[i][j] == self.board[i][j] for i in range(5) for j in range(5)):
+            print(f"WARNING: Move {from_pos} to {to_pos} did not change board...")
+            return False
 
         self.turn = 'b' if self.turn == 'w' else 'w'
-        self._record_state()
+        if self._record_state():
+            return True
+        
+        if self.halfmove_clock >= 40:
+            self.winner = 'draw'
+            print("Draw by move clock")
+            return True
 
+        if self.is_dead_position():
+            self.winner = 'draw'
+            print("Draw by insufficient material")
+            return True
+        
         legal_moves = self.get_legal_moves()
         if not legal_moves:
             if self.is_in_check(self.turn):
+                # If no legal moves and in check -> checkmate
                 self.winner = 'w' if self.turn == 'b' else 'b'
             else:
-                self.winner = 'draw' #No check but also no legal moves -> stalemate
+                self.winner = 'draw' # No check but also no legal moves -> stalemate
         return True
     
     def get_legal_moves(self):
@@ -198,19 +215,37 @@ class MiniChess:
                     for ty in range(5):
                         for tx in range(5):
                             if self.is_valid_move((x, y), (tx, ty)):
-                                #Make temp move to check if own king in check
-                                from_piece = self.get_piece(x, y)
-                                to_piece = self.get_piece(tx, ty)
-                                self.set_piece(tx, ty, from_piece)
-                                self.set_piece(x, y, '.')
-                                in_check = self.is_in_check(self.turn)
-                                #Undo the temp move
-                                self.set_piece(x, y, from_piece)
-                                self.set_piece(tx, ty, to_piece)
-
-                                if not in_check:
+                                temp_board = self.copy()
+                                moving_piece = temp_board.get_piece(x, y)
+                                temp_board.set_piece(tx, ty, moving_piece)
+                                temp_board.set_piece(x, y, '.')
+                                
+                                # Only add move if it doesn't put own king in check
+                                if not temp_board.is_in_check(self.turn):
                                     moves.append(((x, y), (tx, ty)))
         return moves
+    
+    def is_dead_position(self):
+        """Check for dead positions, which result in instant draws"""
+        pieces = {'w': [], 'b': []}
+
+        for y in range(5):
+            for x in range(5):
+                piece = self.get_piece(x, y)
+                if piece != '.':
+                    pieces[piece[0]].append(piece[1])
+
+        pieces['w'].sort()
+        pieces['b'].sort()
+
+        # King v King:
+        if len(pieces['w']) == 1 and len(pieces['b']) == 1:
+            return True
+        
+        # King v Bishop + King:
+        if (len(pieces['w']) == 1 and len(pieces['b']) == 2 and 'B' in pieces['b']) or \
+           (len(pieces['b']) == 1 and len(pieces['w']) == 2 and 'B' in pieces['w']):
+            return True
 
 
 

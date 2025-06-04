@@ -17,10 +17,10 @@ from models.minmax import MinimaxAI
 from models.qlearning import QLearningAgent
 
 # Training parameters
-TOTAL_EPISODES = 50000
+TOTAL_EPISODES = 25000
 INITIAL_EPSILON = 1.0
 MIN_EPSILON = 0.1
-EPSILON_DECAY = 0.9999
+EPSILON_DECAY = 0.99975
 
 def is_improvement(prev_win_rate, new_win_rate, n_games=500):
     """Check if improvement is statistically significant"""
@@ -61,9 +61,17 @@ def evaluate_agent(agent, opponent_depth, num_games=500):
             print(f"Evaluation progress: {game_num + 1}/{num_games} games")
     
     win_rate = results['wins'] / num_games
-    print(f"\nEvaluation Results (vs depth={opponent_depth}):")
-    print(f"Wins: {results['wins']}, Losses: {results['losses']}, Draws: {results['draws']}")
-    print(f"Win Rate: {win_rate:.2%}")
+    draw_rate = results['draws'] / num_games
+    eval_results = (
+            f"\nEvaluation Results (vs depth={opponent_depth}):"
+            f"Wins: {results['wins']}, Losses: {results['losses']}, Draws: {results['draws']}"
+            f"Win Rate: {win_rate:.2%}"
+            f"Draw Rate: {draw_rate:.2%}"
+        )
+    
+    print(eval_results)
+    agent.write_to_file(eval_results)
+
     return win_rate
 
 def save_checkpoint(agent, episode, win_rate, metrics):
@@ -107,7 +115,7 @@ def main():
                 # print(f"\nStarting episode {episode}")
                 # Determine opponent depth and evaluation frequency
                 if episode < 25000:
-                    opponent_depth = 1
+                    opponent_depth = 2
                     eval_freq = 1500
                 else:
                     if episode == 25000:
@@ -174,13 +182,18 @@ def main():
             # Evaluation and checkpointing
             if episode % eval_freq == 0:
                 elapsed_time = time.time() - start_time
-                print(f"\n{'='*50}")
-                print(f"Episode {episode}/{TOTAL_EPISODES} ({episode/TOTAL_EPISODES:.1%})")
-                print(f"Training time: {elapsed_time/3600:.1f} hours")
-                print(f"Current ε: {agent.epsilon:.3f}")
-                print(f"Opponent depth: {opponent_depth}")
-                
                 win_rate = evaluate_agent(agent, opponent_depth)
+
+                status_text = (
+                    (f"\n{'='*50}")
+                    (f"Episode {episode}/{TOTAL_EPISODES} ({episode/TOTAL_EPISODES:.1%})")
+                    (f"Training time: {elapsed_time/3600:.1f} hours")
+                    (f"Current ε: {agent.epsilon:.3f}")
+                    (f"Opponent depth: {opponent_depth}")
+                )
+                
+                print(status_text)
+                agent.write_to_file(status_text)
                 
                 # Record metrics
                 metrics['episodes'].append(episode)
